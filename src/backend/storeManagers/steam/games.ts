@@ -2,12 +2,9 @@ import {
   ExecResult,
   ExtraInfo,
   GameInfo,
-  GameSettings,
-  InstallArgs,
-  InstallPlatform,
-  LaunchOption
+  GameSettings
 } from 'common/types'
-import { Game, InstallResult, RemoveArgs } from 'common/types/game_manager'
+import { Game, InstallResult } from 'common/types/game_manager'
 import { GameConfig } from 'backend/game_config'
 import { logInfo, logWarning, LogPrefix } from 'backend/logger'
 import { openUrlOrFile, sendGameStatusUpdate } from 'backend/utils'
@@ -111,7 +108,7 @@ export default class SteamGame implements Game {
   /**
    * Opens Steam's uninstall UI. Does not delete files from Heroic.
    */
-  async uninstall(_args: RemoveArgs): Promise<ExecResult> {
+  async uninstall(): Promise<ExecResult> {
     sendGameStatusUpdate({
       appName: this.id,
       runner: 'steam',
@@ -196,16 +193,13 @@ export default class SteamGame implements Game {
     )
   }
 
-  async install(_args: InstallArgs): Promise<InstallResult> {
+  async install(): Promise<InstallResult> {
     // Install is managed entirely by Steam.
     await openUrlOrFile(`steam://install/${this.id}`)
     return { status: 'done' }
   }
 
-  async importGame(
-    _path: string,
-    _platform: InstallPlatform
-  ): Promise<ExecResult> {
+  async importGame(): Promise<ExecResult> {
     return { stdout: '', stderr: '' }
   }
 
