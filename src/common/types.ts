@@ -111,6 +111,8 @@ export interface AppSettings extends GameSettings {
   darkTrayIcon: boolean
   defaultInstallPath: string
   defaultSteamPath: string
+  /** Open Steam Big Picture before -applaunch (couch/Sunshine). Default true. */
+  steamLaunchBigPicture: boolean
   sharedWinePrefix: string
   defaultWinePrefix: string // only here for backwards compatibility, don't use in new code
   defaultWinePrefixDir: string

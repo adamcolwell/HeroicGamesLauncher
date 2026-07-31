@@ -14,7 +14,7 @@ import { notify } from 'backend/dialog/dialog'
 
 import type LogWriter from 'backend/logger/log_writer'
 import { libraryStore } from './electronStores'
-import { openSteamUri } from './launch'
+import { openSteamUri, runSteamGameSession, stopSteamApp } from './launch'
 
 export default class SteamGame implements Game {
   private readonly id: string
@@ -57,18 +57,23 @@ export default class SteamGame implements Game {
   }
 
   /**
-   * Hand off launch to the Steam client. Heroic does not run the game binary
-   * or manage Proton — Steam owns runtime, DRM, and overlays.
+   * Hand off launch to the Steam client and wait until the Steam app session
+   * ends. Heroic does not run the game binary or manage Proton — Steam owns
+   * runtime, DRM, and overlays. On exit we close Big Picture and refocus Heroic.
+   *
+   * Status `done` is emitted by the shared launcher after this promise resolves
+   * — do not send it here.
    */
   async launch(logWriter: LogWriter): Promise<boolean> {
     const info = this.getGameInfo()
-    const uri = `steam://rungameid/${this.id}`
 
     logInfo(
-      `Launching Steam game "${info.title}" (${this.id}) via ${uri}`,
+      `Launching Steam game "${info.title}" (${this.id}) via Steam client`,
       LogPrefix.Steam
     )
-    await logWriter.logInfo(`Opening ${uri}`)
+    await logWriter.logInfo(
+      `Steam session start appId=${this.id} (applaunch + wait-for-exit + close BPM)`
+    )
 
     sendGameStatusUpdate({
       appName: this.id,
@@ -77,29 +82,20 @@ export default class SteamGame implements Game {
     })
 
     try {
-      await openSteamUri(uri, { appId: this.id })
-      await logWriter.logInfo(`Steam launch handed off for ${this.id}`)
-      return true
+      return await runSteamGameSession(this.id, logWriter)
     } catch (error) {
-      logWarning([`Failed to open Steam URI ${uri}:`, error], LogPrefix.Steam)
-      await logWriter.logError([`Failed to open ${uri}`, error])
+      logWarning(
+        [`Failed Steam session for ${this.id}:`, error],
+        LogPrefix.Steam
+      )
+      await logWriter.logError([`Failed Steam session for ${this.id}`, error])
       return false
-    } finally {
-      // Steam owns the process; Heroic cannot track exit cleanly.
-      sendGameStatusUpdate({
-        appName: this.id,
-        runner: 'steam',
-        status: 'done'
-      })
     }
   }
 
   async stop(): Promise<void> {
-    // Process lifetime is owned by Steam.
-    logWarning(
-      'Stop is not supported for Steam library games (close the game in Steam)',
-      LogPrefix.Steam
-    )
+    logInfo(`Stop requested for Steam game ${this.id}`, LogPrefix.Steam)
+    await stopSteamApp(this.id)
   }
 
   /**
@@ -117,7 +113,7 @@ export default class SteamGame implements Game {
     logInfo(`Opening Steam uninstall for ${title}: ${uri}`, LogPrefix.Steam)
 
     try {
-      await openSteamUri(uri, { appId: this.id })
+      await openSteamUri(uri)
       notify({
         title,
         body: i18next.t(
@@ -173,8 +169,7 @@ export default class SteamGame implements Game {
   }
 
   async repair(): Promise<ExecResult> {
-    // Steam verify/repair UI
-    await openSteamUri(`steam://validate/${this.id}`, { appId: this.id })
+    await openSteamUri(`steam://validate/${this.id}`)
     return { stdout: '', stderr: '' }
   }
 
@@ -191,8 +186,7 @@ export default class SteamGame implements Game {
   }
 
   async install(): Promise<InstallResult> {
-    // Install is managed entirely by Steam.
-    await openSteamUri(`steam://install/${this.id}`, { appId: this.id })
+    await openSteamUri(`steam://install/${this.id}`)
     return { status: 'done' }
   }
 
