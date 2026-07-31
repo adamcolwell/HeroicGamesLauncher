@@ -361,7 +361,9 @@ function removeSpecialcharacters(text: string): string {
 }
 
 async function openUrlOrFile(url: string): Promise<string | void> {
-  if (url.startsWith('http')) {
+  // Protocol URIs (http(s), steam://, heroic://, …) must use openExternal.
+  // openPath is for filesystem paths only — passing steam:// there is a silent no-op.
+  if (url.includes('://')) {
     return shell.openExternal(url)
   }
   return shell.openPath(url)

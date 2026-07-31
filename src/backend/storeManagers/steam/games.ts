@@ -1,13 +1,8 @@
-import {
-  ExecResult,
-  ExtraInfo,
-  GameInfo,
-  GameSettings
-} from 'common/types'
+import { ExecResult, ExtraInfo, GameInfo, GameSettings } from 'common/types'
 import { Game, InstallResult } from 'common/types/game_manager'
 import { GameConfig } from 'backend/game_config'
 import { logInfo, logWarning, LogPrefix } from 'backend/logger'
-import { openUrlOrFile, sendGameStatusUpdate } from 'backend/utils'
+import { sendGameStatusUpdate } from 'backend/utils'
 import {
   addShortcuts as addShortcutsUtil,
   removeShortcuts as removeShortcutsUtil
@@ -19,6 +14,7 @@ import { notify } from 'backend/dialog/dialog'
 
 import type LogWriter from 'backend/logger/log_writer'
 import { libraryStore } from './electronStores'
+import { openSteamUri } from './launch'
 
 export default class SteamGame implements Game {
   private readonly id: string
@@ -81,7 +77,8 @@ export default class SteamGame implements Game {
     })
 
     try {
-      await openUrlOrFile(uri)
+      await openSteamUri(uri, { appId: this.id })
+      await logWriter.logInfo(`Steam launch handed off for ${this.id}`)
       return true
     } catch (error) {
       logWarning([`Failed to open Steam URI ${uri}:`, error], LogPrefix.Steam)
@@ -120,7 +117,7 @@ export default class SteamGame implements Game {
     logInfo(`Opening Steam uninstall for ${title}: ${uri}`, LogPrefix.Steam)
 
     try {
-      await openUrlOrFile(uri)
+      await openSteamUri(uri, { appId: this.id })
       notify({
         title,
         body: i18next.t(
@@ -177,7 +174,7 @@ export default class SteamGame implements Game {
 
   async repair(): Promise<ExecResult> {
     // Steam verify/repair UI
-    await openUrlOrFile(`steam://validate/${this.id}`)
+    await openSteamUri(`steam://validate/${this.id}`, { appId: this.id })
     return { stdout: '', stderr: '' }
   }
 
@@ -195,7 +192,7 @@ export default class SteamGame implements Game {
 
   async install(): Promise<InstallResult> {
     // Install is managed entirely by Steam.
-    await openUrlOrFile(`steam://install/${this.id}`)
+    await openSteamUri(`steam://install/${this.id}`, { appId: this.id })
     return { status: 'done' }
   }
 
