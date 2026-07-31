@@ -341,7 +341,7 @@ class GlobalConfigV0 extends GlobalConfig {
       defaultInstallPath: heroicInstallPath,
       libraryTopSection: 'disabled',
       defaultSteamPath: getSteamCompatFolder(),
-      steamLaunchBigPicture: true,
+      steamLaunchBigPicture: false,
       defaultWinePrefix: defaultWinePrefixDir,
       defaultWinePrefixDir: defaultWinePrefixDir,
       hideChangelogsOnStartup: false,

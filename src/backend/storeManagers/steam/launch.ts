@@ -2,7 +2,7 @@ import { execFile, spawn } from 'child_process'
 import { existsSync } from 'graceful-fs'
 import { join } from 'path'
 import { promisify } from 'util'
-import { shell } from 'electron'
+import { app, shell } from 'electron'
 
 import { GlobalConfig } from 'backend/config'
 import { logInfo, logWarning, LogPrefix } from 'backend/logger'
@@ -16,6 +16,9 @@ const execFileAsync = promisify(execFile)
 
 /** Active Steam game sessions started by Heroic (for stop()). */
 const sessionControllers = new Map<string, AbortController>()
+
+/** Consecutive "not running" polls before we treat the session as ended. */
+const EXIT_DEBOUNCE_POLLS = 3
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -109,7 +112,9 @@ async function runSteamArgs(args: string[], label: string): Promise<void> {
   }
   if (lastError instanceof Error) throw lastError
   throw new Error(
-    `No Steam client available for: ${label}${lastError ? ` (${String(lastError)})` : ''}`
+    `No Steam client available for: ${label}${
+      lastError ? ` (${String(lastError)})` : ''
+    }`
   )
 }
 
@@ -126,19 +131,29 @@ export async function openSteamUri(uri: string): Promise<void> {
   }
 }
 
+/**
+ * Kids frontend default: no Big Picture (Steam UI / ads / dead pad chrome).
+ * Opt-in via settings.steamLaunchBigPicture === true.
+ */
 function wantBigPicture(): boolean {
   const settings = GlobalConfig.get().getSettings() as {
     steamLaunchBigPicture?: boolean
   }
-  // Default on: couch / Sunshine hosts need a fullscreen Steam path.
-  return settings.steamLaunchBigPicture !== false
+  return settings.steamLaunchBigPicture === true
 }
 
 /**
  * Launch any installed Steam app via the Steam client (-applaunch).
- * Optional Big Picture open first (all titles — no per-game hacks).
+ * Default path is silent runtime only — no Big Picture / store chrome.
  */
 export async function launchSteamApp(appId: string): Promise<void> {
+  // Always dismiss BPM if a previous session left it open (kids UI).
+  try {
+    await closeSteamBigPicture()
+  } catch {
+    /* ignore */
+  }
+
   if (wantBigPicture()) {
     logInfo(
       `Steam launch ${appId}: open Big Picture, then -applaunch`,
@@ -155,32 +170,42 @@ export async function launchSteamApp(appId: string): Promise<void> {
     }
   } else {
     logInfo(
-      `Steam launch ${appId}: -applaunch only (Big Picture disabled)`,
+      `Steam launch ${appId}: -applaunch only (no Steam UI / Big Picture)`,
       LogPrefix.Steam
     )
   }
 
-  await runSteamArgs(['-applaunch', appId], `-applaunch ${appId}`)
+  // -silent keeps extra Steam windows down when the client must start cold.
+  try {
+    await runSteamArgs(
+      ['-silent', '-applaunch', appId],
+      `-silent -applaunch ${appId}`
+    )
+  } catch {
+    await runSteamArgs(['-applaunch', appId], `-applaunch ${appId}`)
+  }
   logInfo(`Steam launch handed off: -applaunch ${appId}`, LogPrefix.Steam)
 }
 
 /**
  * True if Steam appears to be running a session for this appId.
- * Matches reaper/SteamLaunch/overlay command lines (Linux best-effort).
+ * Matches reaper / SteamLaunch / overlay command lines (Linux best-effort).
  */
 export async function isSteamAppRunning(appId: string): Promise<boolean> {
-  const needles = [
-    `AppId=${appId}`,
-    `AppID=${appId}`,
-    `gameid ${appId}`,
-    `gameID ${appId}`,
-    `gameid=${appId}`,
-    `SteamLaunch AppId=${appId}`
+  const id = String(appId)
+  const patterns = [
+    new RegExp(`AppId=${id}(?:\\D|$)`),
+    new RegExp(`AppID=${id}(?:\\D|$)`),
+    new RegExp(`SteamLaunch\\s+AppId=${id}(?:\\D|$)`),
+    new RegExp(`gameid[= ]${id}(?:\\D|$)`, 'i'),
+    new RegExp(`gameID[= ]${id}(?:\\D|$)`),
+    new RegExp(`reaper.*\\b${id}\\b`, 'i'),
+    new RegExp(`gameoverlayui.*-gameid\\s*${id}(?:\\D|$)`, 'i')
   ]
 
   try {
     if (isWindows) {
-      // tasklist does not expose full args reliably.
+      // No reliable full-arg scan without WMI; leave false so start-timeout applies.
       return false
     }
 
@@ -191,8 +216,18 @@ export async function isSteamAppRunning(appId: string): Promise<boolean> {
 
     for (const line of stdout.split('\n')) {
       if (!line) continue
-      if (/heroic|HeroicGamesLauncher|steam\/launch/i.test(line)) continue
-      if (needles.some((n) => line.includes(n))) return true
+      // Ignore Heroic / tooling; keep Steam reaper lines.
+      if (/heroic|HeroicGamesLauncher|steam\/launch\.ts/i.test(line)) continue
+      // Ignore pure steam client UI (no game id).
+      if (
+        /steamwebhelper|steam\.sh|ubuntu12_32\/steam|ubuntu12_64\/steam/i.test(
+          line
+        ) &&
+        !patterns.some((p) => p.test(line))
+      ) {
+        continue
+      }
+      if (patterns.some((p) => p.test(line))) return true
     }
   } catch (error) {
     logWarning(['isSteamAppRunning ps failed:', error], LogPrefix.Steam)
@@ -210,6 +245,7 @@ export type WaitForSteamSessionOptions = {
 
 /**
  * Wait until Steam starts the app (process visible), then until it exits.
+ * Exit requires several consecutive "not running" polls (Proton teardown noise).
  */
 export async function waitForSteamAppSession(
   appId: string,
@@ -249,17 +285,28 @@ export async function waitForSteamAppSession(
     return 'never-started'
   }
 
-  await log(`Steam app ${appId} is running — waiting for exit…`)
+  await log(
+    `Steam app ${appId} is running — waiting for exit (debounce ${EXIT_DEBOUNCE_POLLS})…`
+  )
 
   const exitDeadline = Date.now() + exitTimeoutMs
+  let goneStreak = 0
   while (Date.now() < exitDeadline) {
     if (aborted()) {
       await log(`Wait aborted while ${appId} running`)
       return 'aborted'
     }
     await sleep(pollMs)
-    if (!(await isSteamAppRunning(appId))) {
-      await log(`Steam app ${appId} exited`)
+    const running = await isSteamAppRunning(appId)
+    if (running) {
+      goneStreak = 0
+      continue
+    }
+    goneStreak += 1
+    if (goneStreak >= EXIT_DEBOUNCE_POLLS) {
+      await log(
+        `Steam app ${appId} exited (confirmed after ${goneStreak} clean polls)`
+      )
       return 'exited'
     }
   }
@@ -279,8 +326,8 @@ export async function closeSteamBigPicture(): Promise<void> {
 }
 
 /**
- * Return focus to Heroic (console fullscreen if that was the mode).
- * Does not minimize Heroic on launch — only restores after Steam session.
+ * Hard reclaim focus for kids console: show, focus, re-fullscreen, brief
+ * always-on-top pulse (helps Cosmic/Wayland after Steam fullscreen games).
  */
 export function focusHeroicWindow(): void {
   const win = getMainWindow()
@@ -290,14 +337,51 @@ export function focusHeroicWindow(): void {
   }
   try {
     if (win.isMinimized()) win.restore()
+
+    // Electron may support steal-focus on some platforms.
+    try {
+      app.focus({ steal: true })
+    } catch {
+      /* optional */
+    }
+
     win.show()
     win.focus()
-    if (
+    if (typeof win.moveTop === 'function') {
+      win.moveTop()
+    }
+
+    const wantFs =
       process.argv.includes('--fullscreen') ||
       process.argv.includes('--console')
-    ) {
+    if (wantFs) {
       win.setFullScreen(true)
     }
+
+    // Pulse always-on-top so we win over leftover Steam surfaces.
+    try {
+      win.setAlwaysOnTop(true, 'screen-saver')
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          win.setAlwaysOnTop(false)
+          win.focus()
+        }
+      }, 1200)
+    } catch {
+      /* setAlwaysOnTop level not supported everywhere */
+      try {
+        win.setAlwaysOnTop(true)
+        setTimeout(() => {
+          if (!win.isDestroyed()) {
+            win.setAlwaysOnTop(false)
+            win.focus()
+          }
+        }, 1200)
+      } catch {
+        /* ignore */
+      }
+    }
+
     logInfo('Focused Heroic main window after Steam session', LogPrefix.Steam)
   } catch (error) {
     logWarning(['focusHeroicWindow failed:', error], LogPrefix.Steam)
@@ -308,11 +392,20 @@ export function focusHeroicWindow(): void {
 export async function cleanupAfterSteamGame(
   logWriter?: LogWriter
 ): Promise<void> {
-  const msg = 'Steam session cleanup: close Big Picture + focus Heroic'
+  const msg = 'Steam session cleanup: dismiss Steam UI + return focus to Heroic'
   logInfo(msg, LogPrefix.Steam)
   await logWriter?.logInfo(msg)
+
+  // Close BPM if open; safe no-op when it was never used.
   await closeSteamBigPicture()
-  await sleep(800)
+  await sleep(500)
+  // Second close — Steam sometimes ignores the first while tearing down a game.
+  await closeSteamBigPicture()
+  await sleep(600)
+
+  focusHeroicWindow()
+  // Second focus after compositor settles (Cosmic/Wayland).
+  await sleep(700)
   focusHeroicWindow()
 }
 
@@ -322,15 +415,19 @@ export async function stopSteamApp(appId: string): Promise<void> {
   sessionControllers.get(appId)?.abort()
 
   if (isLinux) {
-    try {
-      await execFileAsync('pkill', ['-f', `AppId=${appId}`], { timeout: 5000 })
-    } catch {
-      /* pkill exits 1 when no match */
-    }
-    try {
-      await execFileAsync('pkill', ['-f', `gameid ${appId}`], { timeout: 5000 })
-    } catch {
-      /* no match */
+    const patterns = [
+      `AppId=${appId}`,
+      `AppID=${appId}`,
+      `gameid ${appId}`,
+      `gameID ${appId}`,
+      `SteamLaunch AppId=${appId}`
+    ]
+    for (const pattern of patterns) {
+      try {
+        await execFileAsync('pkill', ['-f', pattern], { timeout: 5000 })
+      } catch {
+        /* pkill exits 1 when no match */
+      }
     }
   }
 }
@@ -364,7 +461,6 @@ export async function runSteamGameSession(
       logWriter
     })
     await logWriter.logInfo(`Steam session result for ${appId}: ${result}`)
-    // never-started still "succeeded" handoff; cleanup still runs
     return result === 'exited' || result === 'never-started'
   } catch (error) {
     logWarning([`Steam session failed for ${appId}:`, error], LogPrefix.Steam)
