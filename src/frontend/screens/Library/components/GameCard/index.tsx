@@ -292,7 +292,7 @@ const GameCard = ({
   }
 
   const isSideloaded = runner === 'sideload'
-
+  const isSteam = runner === 'steam'
   const handleEdit = () => {
     if (isSideloaded) {
       openInstallGameModal({ appName, runner, gameInfo })
@@ -380,7 +380,7 @@ const GameCard = ({
         ? t('button.sideload.edit', 'Edit App/Game')
         : t('edit-game.title', 'Edit Game'),
       onclick: handleEdit,
-      show: true,
+      show: !isSteam,
       icon: <Edit />
     },
     {

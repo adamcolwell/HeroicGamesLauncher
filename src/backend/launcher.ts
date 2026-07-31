@@ -1137,6 +1137,10 @@ function setupWrapperEnvVars(wrapperEnv: WrapperEnv) {
       ret.HEROIC_APP_SOURCE = 'zoom'
       ret.STORE = 'zoomplatform'
       break
+    case 'steam':
+      ret.HEROIC_APP_SOURCE = 'steam'
+      ret.STORE = 'steam'
+      break
   }
 
   return ret
@@ -1690,6 +1694,10 @@ function appNameFromCommandParts(commandParts: string[], runner: Runner) {
       if (idx > -1) {
         appNameIndex = commandParts.length - 1
       }
+      break
+    case 'sideload':
+    case 'zoom':
+    case 'steam':
       break
   }
 

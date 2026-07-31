@@ -25,6 +25,7 @@ import {
   epicCategories,
   gogCategories,
   sideloadedCategories,
+  steamCategories,
   zoomCategories,
   normalizeTitle
 } from 'frontend/helpers/library'
@@ -58,6 +59,7 @@ export default React.memo(function Library(): JSX.Element {
     amazon,
     zoom,
     sideloadedLibrary,
+    steamLibrary,
     favouriteGames,
     libraryTopSection,
     platform,
@@ -82,8 +84,12 @@ export default React.memo(function Library(): JSX.Element {
   let initialStoresfilters
   const storesFiltersString = storage.getItem('storesFilters')
   if (storesFiltersString) {
-    // If we have something stored, use that
-    initialStoresfilters = JSON.parse(storesFiltersString) as StoresFilters
+    // If we have something stored, use that (backfill new keys)
+    const stored = JSON.parse(storesFiltersString) as StoresFilters
+    initialStoresfilters = {
+      ...stored,
+      steam: stored.steam ?? true
+    }
   } else {
     // Else, use the old `category` filter
     // TODO: we can remove this eventually after a few releases and just use the code of the if
@@ -93,7 +99,8 @@ export default React.memo(function Library(): JSX.Element {
       gog: gogCategories.includes(storedCategory),
       nile: amazonCategories.includes(storedCategory),
       sideload: sideloadedCategories.includes(storedCategory),
-      zoom: zoom.enabled && zoomCategories.includes(storedCategory)
+      zoom: zoom.enabled && zoomCategories.includes(storedCategory),
+      steam: steamCategories.includes(storedCategory)
     }
   }
 
@@ -368,6 +375,9 @@ export default React.memo(function Library(): JSX.Element {
       sideloadedLibrary.forEach((game) => {
         if (favouriteAppNames.includes(game.app_name)) tempArray.push(game)
       })
+      steamLibrary.forEach((game) => {
+        if (favouriteAppNames.includes(game.app_name)) tempArray.push(game)
+      })
       amazon.library.forEach((game) => {
         if (favouriteAppNames.includes(game.app_name)) tempArray.push(game)
       })
@@ -388,6 +398,7 @@ export default React.memo(function Library(): JSX.Element {
     gog,
     amazon,
     sideloadedLibrary,
+    steamLibrary,
     zoom
   ])
 
@@ -412,6 +423,9 @@ export default React.memo(function Library(): JSX.Element {
     if (storesFilters['zoom'] && zoom.username) {
       displayedStores.push('zoom')
     }
+    if (storesFilters['steam']) {
+      displayedStores.push('steam')
+    }
 
     if (!displayedStores.length) {
       displayedStores = Object.keys(storesFilters)
@@ -422,15 +436,18 @@ export default React.memo(function Library(): JSX.Element {
     const showAmazon = amazon.user_id && displayedStores.includes('nile')
     const showSideloaded = displayedStores.includes('sideload')
     const showZoom = zoom.username && displayedStores.includes('zoom')
+    const showSteam = displayedStores.includes('steam')
 
     const epicLibrary = showEpic ? epic.library : []
     const gogLibrary = showGog ? gog.library : []
     const sideloadedApps = showSideloaded ? sideloadedLibrary : []
     const amazonLibrary = showAmazon ? amazon.library : []
     const zoomLibrary = showZoom ? zoom.library : []
+    const steamApps = showSteam ? steamLibrary : []
 
     return [
       ...sideloadedApps,
+      ...steamApps,
       ...epicLibrary,
       ...gogLibrary,
       ...amazonLibrary,
@@ -570,6 +587,7 @@ export default React.memo(function Library(): JSX.Element {
     amazon.library,
     zoom.library,
     sideloadedLibrary,
+    steamLibrary,
     platform,
     filterText,
     showHidden,

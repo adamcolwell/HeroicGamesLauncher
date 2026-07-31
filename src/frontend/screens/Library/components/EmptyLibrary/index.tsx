@@ -6,7 +6,7 @@ import { NavLink } from 'react-router-dom'
 import AddGameButton from '../AddGameButton'
 
 function EmptyLibraryMessage() {
-  const { epic, gog, amazon, zoom, sideloadedLibrary } =
+  const { epic, gog, amazon, zoom, sideloadedLibrary, steamLibrary } =
     useContext(ContextProvider)
   const { i18n } = useTranslation()
 
@@ -16,8 +16,8 @@ function EmptyLibraryMessage() {
       <br />
       <br />
       Click <NavLink to="/login">here</NavLink> to log in with your Epic,
-      GOG.com, Amazon, or Zoom accounts. Then, your games will show up here in
-      the Library.
+      GOG.com, Amazon, or Zoom accounts. Installed Steam games are listed
+      automatically when Steam is found on this system.
       <br />
       <br />
       To use games or apps from other sources, click <AddGameButton /> to add
@@ -30,7 +30,8 @@ function EmptyLibraryMessage() {
       gog.library.length +
       amazon.library.length +
       zoom.library.length +
-      sideloadedLibrary.length >
+      sideloadedLibrary.length +
+      steamLibrary.length >
     0
   ) {
     message = (

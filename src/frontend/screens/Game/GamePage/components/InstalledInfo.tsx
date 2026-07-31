@@ -22,7 +22,7 @@ const InstalledInfo = ({ gameInfo }: Props) => {
     return null
   }
 
-  const isSideloaded = runner === 'sideload'
+  const isSideloaded = runner === 'sideload' || runner === 'steam'
   const isThirdParty = !!gameInfo.thirdPartyManagedApp
 
   const {

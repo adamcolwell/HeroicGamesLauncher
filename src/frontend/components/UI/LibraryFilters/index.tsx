@@ -12,7 +12,8 @@ const RunnerToStore = {
   gog: 'GOG',
   nile: 'Amazon Games',
   sideload: 'Other',
-  zoom: 'ZOOM Platform'
+  zoom: 'ZOOM Platform',
+  steam: 'Steam'
 }
 
 export default function LibraryFilters() {
@@ -90,7 +91,8 @@ export default function LibraryFilters() {
       gog: false,
       nile: false,
       sideload: false,
-      zoom: false
+      zoom: false,
+      steam: false
     }
     newFilters = { ...newFilters, [store]: true }
     setStoresFilters(newFilters)
@@ -133,6 +135,7 @@ export default function LibraryFilters() {
   // t('GOG', 'GOG')
   // t('Amazon Games', 'Amazon Games')
   // t('Other', 'Other')
+  // t('Steam', 'Steam')
   const storeToggle = (store: Runner) => {
     const toggle = (
       <ToggleSwitch
@@ -155,7 +158,8 @@ export default function LibraryFilters() {
       gog: true,
       nile: true,
       sideload: true,
-      zoom: true
+      zoom: true,
+      steam: true
     })
     setPlatformsFilters({
       win: true,
@@ -184,6 +188,7 @@ export default function LibraryFilters() {
       {gog.username && storeToggle('gog')}
       {amazon.user_id && storeToggle('nile')}
       {zoom.enabled && zoom.username && storeToggle('zoom')} {}
+      {storeToggle('steam')}
       {storeToggle('sideload')}
       <hr />
       {platformToggle('win')}

@@ -85,7 +85,8 @@ export default function GamesSettings() {
   const showCloudSavesTab =
     gameInfo?.runner === 'gog' || gameInfo?.runner === 'legendary'
   const isBrowserGame = gameInfo?.install.platform === 'Browser'
-  const isSideloaded = gameInfo?.runner === 'sideload'
+  const isSideloaded =
+    gameInfo?.runner === 'sideload' || gameInfo?.runner === 'steam'
 
   function shouldShowSettings(tab: 'wine' | 'other'): boolean {
     if (tab === 'wine') {

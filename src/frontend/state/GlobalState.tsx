@@ -34,6 +34,7 @@ import {
   nileLibraryStore,
   wineDownloaderInfoStore,
   sideloadLibrary,
+  steamLibraryStore,
   zoomConfigStore,
   zoomInstalledGamesStore,
   zoomLibraryStore
@@ -102,6 +103,7 @@ interface StateProps {
   dialogModalOptions: DialogModalOptions
   externalLinkDialogOptions: ExternalLinkDialogOptions
   sideloadedLibrary: GameInfo[]
+  steamLibrary: GameInfo[]
   hideChangelogsOnStartup: boolean
   lastChangelogShown: string | null
   showInstallModal: {
@@ -192,6 +194,13 @@ class GlobalState extends PureComponent<Props> {
     return applyGameOverrides(games, overrides)
   }
 
+  loadSteamLibrary = (
+    overrides: Record<string, GameOverride> = currentOverrides()
+  ): Array<GameInfo> => {
+    const games = steamLibraryStore.get('games', [])
+    return applyGameOverrides(games, overrides)
+  }
+
   state: StateProps = {
     epic: {
       library: this.loadLegendaryLibrary(),
@@ -253,6 +262,7 @@ class GlobalState extends PureComponent<Props> {
       gameInfo: null
     },
     sideloadedLibrary: applyGameOverrides(sideloadLibrary.get('games', [])),
+    steamLibrary: applyGameOverrides(steamLibraryStore.get('games', [])),
     dialogModalOptions: { showDialog: false },
     externalLinkDialogOptions: { showDialog: false },
     hideChangelogsOnStartup: globalSettings?.hideChangelogsOnStartup || false,
@@ -686,7 +696,8 @@ class GlobalState extends PureComponent<Props> {
       sideloadedLibrary: applyGameOverrides(
         sideloadLibrary.get('games', []),
         overrides
-      )
+      ),
+      steamLibrary: this.loadSteamLibrary(overrides)
     })
   }
 
@@ -744,6 +755,7 @@ class GlobalState extends PureComponent<Props> {
     }
 
     const updatedSideload = sideloadLibrary.get('games', [])
+    const steamLibrary = this.loadSteamLibrary(overrides)
 
     this.setState({
       epic: {
@@ -767,7 +779,8 @@ class GlobalState extends PureComponent<Props> {
       gameUpdates: updates,
       refreshing: false,
       refreshingInTheBackground: true,
-      sideloadedLibrary: applyGameOverrides(updatedSideload, overrides)
+      sideloadedLibrary: applyGameOverrides(updatedSideload, overrides),
+      steamLibrary
     })
 
     if (currentLibraryLength !== epicLibrary.length) {
@@ -1000,16 +1013,18 @@ class GlobalState extends PureComponent<Props> {
       this.setState({ gameUpdates: storedGameUpdates })
     }
 
-    if (legendaryUser || gogUser || amazonUser || (zoom.enabled && zoomUser)) {
-      this.refreshLibrary({
-        checkForUpdates: true,
-        runInBackground:
-          epic.library.length !== 0 ||
-          gog.library.length !== 0 ||
-          amazon.library.length !== 0 ||
-          ((this.state.zoom.enabled && zoom.library) || []).length !== 0
-      })
-    }
+    // Always refresh so local Steam installs are scanned even with no store logins.
+    this.refreshLibrary({
+      checkForUpdates: Boolean(
+        legendaryUser || gogUser || amazonUser || (zoom.enabled && zoomUser)
+      ),
+      runInBackground:
+        epic.library.length !== 0 ||
+        gog.library.length !== 0 ||
+        amazon.library.length !== 0 ||
+        ((this.state.zoom.enabled && zoom.library) || []).length !== 0 ||
+        this.state.steamLibrary.length !== 0
+    })
 
     window.addEventListener(
       'controller-changed',

@@ -34,7 +34,7 @@ export default function InstallOverlay({
   const isWin = platform === 'win32'
   const isMac = platform === 'darwin'
   const isLinux = platform === 'linux'
-  const isSideload = game.runner === 'sideload'
+  const isSideload = game.runner === 'sideload' || game.runner === 'steam'
 
   const availablePlatforms = useMemo<PlatformOption[]>(() => {
     const options: PlatformOption[] = []

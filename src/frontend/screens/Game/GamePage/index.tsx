@@ -144,7 +144,7 @@ export default React.memo(function GamePage(): JSX.Element | null {
   const isWin = platform === 'win32'
   const isLinux = platform === 'linux'
   const isMac = platform === 'darwin'
-  const isSideloaded = runner === 'sideload'
+  const isSideloaded = runner === 'sideload' || runner === 'steam'
   const isBrowserGame = gameInfo?.install.platform === 'Browser'
 
   const isInstalling = status === 'installing'

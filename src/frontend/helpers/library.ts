@@ -474,5 +474,10 @@ export const gogCategories = ['all', 'gog']
 export const sideloadedCategories = ['all', 'sideload']
 export const amazonCategories = ['all', 'nile', 'amazon']
 export const zoomCategories = ['all', 'zoom']
+export const steamCategories = ['all', 'steam']
+
+/** Runners Heroic lists but does not install/update itself. */
+export const isUnmanagedRunner = (runner: Runner) =>
+  runner === 'sideload' || runner === 'steam'
 
 export { handleStopInstallation, install, launch, repair, updateGame }

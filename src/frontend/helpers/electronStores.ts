@@ -171,6 +171,11 @@ const sideloadLibrary = new TypeCheckedStoreFrontend('sideloadedStore', {
   name: 'library'
 })
 
+const steamLibraryStore = new CacheStore<GameInfo[], 'games'>(
+  'steam_library',
+  null
+)
+
 const downloadManagerStore = new TypeCheckedStoreFrontend('downloadManager', {
   cwd: 'store',
   name: 'download-manager'
@@ -189,6 +194,7 @@ export {
   libraryStore,
   timestampStore,
   sideloadLibrary,
+  steamLibraryStore,
   wineDownloaderInfoStore,
   downloadManagerStore,
   nileLibraryStore,

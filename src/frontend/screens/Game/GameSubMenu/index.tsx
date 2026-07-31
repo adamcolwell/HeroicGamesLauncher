@@ -86,6 +86,9 @@ export default function GamesSubmenu({
   )
   const { t } = useTranslation('gamepage')
   const isSideloaded = runner === 'sideload'
+  const isSteam = runner === 'steam'
+  // No Heroic-managed install/update/move for sideload or Steam library titles.
+  const isUnmanaged = isSideloaded || isSteam
   const isThirdPartyManaged = !!gameInfo.thirdPartyManagedApp
 
   async function onMoveInstallYesClick() {
@@ -299,15 +302,17 @@ export default function GamesSubmenu({
         <div className={`submenu`}>
           {isInstalled && (
             <>
-              <button
-                onClick={async () => handleEdit()}
-                className="link button is-text is-link buttonWithIcon"
-              >
-                <EditIcon />
-                {isSideloaded
-                  ? t('button.sideload.edit', 'Edit App/Game')
-                  : t('button.edit-game', 'Edit Game')}
-              </button>{' '}
+              {!isSteam && (
+                <button
+                  onClick={async () => handleEdit()}
+                  className="link button is-text is-link buttonWithIcon"
+                >
+                  <EditIcon />
+                  {isSideloaded
+                    ? t('button.sideload.edit', 'Edit App/Game')
+                    : t('button.edit-game', 'Edit Game')}
+                </button>
+              )}{' '}
               <button
                 onClick={() => handleShortcuts()}
                 className="link button is-text is-link buttonWithIcon"
@@ -325,7 +330,7 @@ export default function GamesSubmenu({
                 <DeleteIcon />
                 {t('button.uninstall', 'Uninstall')}
               </button>{' '}
-              {!isSideloaded && !isThirdPartyManaged && (
+              {!isUnmanaged && !isThirdPartyManaged && (
                 <button
                   onClick={async () => handleUpdate()}
                   className="link button is-text is-link buttonWithIcon"
@@ -335,7 +340,7 @@ export default function GamesSubmenu({
                   {t('button.force_update', 'Force Update if Available')}
                 </button>
               )}{' '}
-              {!isSideloaded && !isThirdPartyManaged && (
+              {!isUnmanaged && !isThirdPartyManaged && (
                 <button
                   onClick={async () => handleMoveInstall()}
                   className="link button is-text is-link buttonWithIcon"
@@ -344,7 +349,7 @@ export default function GamesSubmenu({
                   {t('submenu.move', 'Move Game')}
                 </button>
               )}{' '}
-              {!isSideloaded && !isThirdPartyManaged && (
+              {!isUnmanaged && !isThirdPartyManaged && (
                 <button
                   onClick={async () => handleChangeInstall()}
                   className="link button is-text is-link buttonWithIcon"
@@ -353,7 +358,7 @@ export default function GamesSubmenu({
                   {t('submenu.change', 'Change Install Location')}
                 </button>
               )}{' '}
-              {!isSideloaded && !isThirdPartyManaged && (
+              {(!isUnmanaged || isSteam) && !isThirdPartyManaged && (
                 <button
                   onClick={async () => handleRepair(appName)}
                   className="link button is-text is-link buttonWithIcon"
@@ -379,21 +384,22 @@ export default function GamesSubmenu({
                 ))}
             </>
           )}
-          {steamRefresh ? (
-            refreshCircle()
-          ) : (
-            <button
-              onClick={async () => handleAddToSteam()}
-              className="link button is-text is-link buttonWithIcon"
-            >
-              <SvgIcon>
-                <FontAwesomeIcon icon={faSteam} />
-              </SvgIcon>
-              {addedToSteam
-                ? t('submenu.removeFromSteam', 'Remove from Steam')
-                : t('submenu.addToSteam', 'Add to Steam')}
-            </button>
-          )}
+          {!isSteam &&
+            (steamRefresh ? (
+              refreshCircle()
+            ) : (
+              <button
+                onClick={async () => handleAddToSteam()}
+                className="link button is-text is-link buttonWithIcon"
+              >
+                <SvgIcon>
+                  <FontAwesomeIcon icon={faSteam} />
+                </SvgIcon>
+                {addedToSteam
+                  ? t('submenu.removeFromSteam', 'Remove from Steam')
+                  : t('submenu.addToSteam', 'Add to Steam')}
+              </button>
+            ))}
           <button
             onClick={() => openGameCategoriesModal(gameInfo)}
             className="link button is-text is-link buttonWithIcon"
@@ -401,7 +407,7 @@ export default function GamesSubmenu({
             <FormatListBulletedIcon />
             {t('submenu.categories', 'Categories')}
           </button>
-          {!isSideloaded && storeUrl && (
+          {(!isSideloaded || isSteam) && storeUrl && (
             <NavLink
               className="link button is-text is-link buttonWithIcon"
               to={`/store-page?store-url=${storeUrl}`}
@@ -410,7 +416,7 @@ export default function GamesSubmenu({
               {t('submenu.store')}
             </NavLink>
           )}
-          {!isSideloaded && !!changelog?.length && (
+          {!isUnmanaged && !!changelog?.length && (
             <button
               onClick={() => handleChangeLog()}
               className="link button is-text is-link buttonWithIcon"
@@ -419,7 +425,7 @@ export default function GamesSubmenu({
               {t('button.changelog', 'Show Changelog')}
             </button>
           )}{' '}
-          {!isSideloaded && isLinux && (
+          {(!isSideloaded || isSteam) && isLinux && (
             <button
               onClick={() => createNewWindow(protonDBurl)}
               className="link button is-text is-link buttonWithIcon"

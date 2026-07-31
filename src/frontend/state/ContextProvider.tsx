@@ -33,6 +33,7 @@ const initialContext: ContextType = {
   },
   installingEpicGame: false,
   sideloadedLibrary: [],
+  steamLibrary: [],
   error: false,
   gameUpdates: [],
   libraryStatus: [],

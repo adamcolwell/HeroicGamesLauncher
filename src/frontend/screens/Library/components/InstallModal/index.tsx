@@ -60,7 +60,7 @@ function InstallModal({ appName, runner, gameInfo = null }: Props) {
   const isMac = platform === 'darwin'
   const isWin = platform === 'win32'
   const isLinux = platform === 'linux'
-  const isSideload = runner === 'sideload'
+  const isSideload = runner === 'sideload' || runner === 'steam'
 
   const platforms: AvailablePlatforms = [
     {

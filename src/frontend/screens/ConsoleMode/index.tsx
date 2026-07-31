@@ -65,6 +65,7 @@ export default function ConsoleMode() {
     zoom,
     libraryStatus,
     sideloadedLibrary,
+    steamLibrary,
     refreshLibrary,
     refreshing,
     gameUpdates
@@ -119,7 +120,8 @@ export default function ConsoleMode() {
       ...gog.library,
       ...amazon.library,
       ...zoom.library,
-      ...sideloadedLibrary
+      ...sideloadedLibrary,
+      ...steamLibrary
     ]
     return all.filter((g) => !g.install?.is_dlc && !g.thirdPartyManagedApp)
   }, [
@@ -127,7 +129,8 @@ export default function ConsoleMode() {
     gog.library,
     amazon.library,
     zoom.library,
-    sideloadedLibrary
+    sideloadedLibrary,
+    steamLibrary
   ])
 
   const visibleGames = useMemo(() => {
@@ -176,6 +179,11 @@ export default function ConsoleMode() {
         key: 'sideload',
         label: t('console.filter.sideload', 'Other'),
         enabled: storesWithGames.has('sideload')
+      },
+      {
+        key: 'steam',
+        label: 'Steam',
+        enabled: storesWithGames.has('steam')
       },
       { key: 'zoom', label: 'ZOOM', enabled: storesWithGames.has('zoom') }
     ],

@@ -25,6 +25,7 @@ export type Category =
   | 'sideload'
   | 'nile'
   | 'zoom'
+  | 'steam'
 
 export interface ContextType {
   error: boolean
@@ -112,6 +113,7 @@ export interface ContextType {
   externalLinkDialogOptions: ExternalLinkDialogOptions
   handleExternalLinkDialog: (options: ExternalLinkDialogOptions) => void
   sideloadedLibrary: GameInfo[]
+  steamLibrary: GameInfo[]
   hideChangelogsOnStartup: boolean
   setHideChangelogsOnStartup: (value: boolean) => void
   lastChangelogShown: string | null
@@ -212,6 +214,7 @@ export interface StoresFilters {
   nile: boolean
   sideload: boolean
   zoom: boolean
+  steam: boolean
 }
 
 export interface PlatformsFilters {
